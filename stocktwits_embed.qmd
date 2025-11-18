@@ -1,0 +1,151 @@
+---
+title: "Making Money by Being Wrong"
+subtitle: "Stock Trading From Social Media Sentiment Analysis"
+author: "Art Steinmetz"
+format: 
+  revealjs:
+    theme: blood
+    embed-resources: true
+execute: 
+  echo: true
+bibliography: refs.bibtex
+link-citations: true
+---
+
+## Goals
+
+-   Learn how to manage large datasets with R and duckplyr.
+-   Learn how to potentially profit from social media posters being reliably wrong.
+
+## Who I Am
+
+-   Husband, Father, Grandfather (I have my priorities straight)
+-   Retired Investment Professional (Global Macro Fixed Income)
+-   Fund Board Member at BlackRock
+-   Consultant for Posit
+-   Data Science Hobbyist
+-   Blogger at `outsiderdata.net`
+
+## Background
+
+-   Picking stocks that will go up is hard.
+-   Picking stocks that will go down also is hard.
+-   Being skilled at either could make you a lot of money.
+-   **But what if we could find people who are reliably wrong?**
+
+## Social Media Sentiment Analysis
+
+-   A recent academic paper by Aaron Kaufman, Jax Li and Nasser Alansari presented a huge dataset.
+
+    > *"StockTwits: Comprehensive records of a financial social media platform from 2008 to 2022."[@Li_Al_Ansari_Kaufman_2025]*
+
+-   They scraped every post, ever, on StockTwits to retrieve over 500(!) million messages.
+
+-   The complete dataset is freely available on AWS S3.
+
+-   Of the posters, the researchers found "**a significant percentage consistently perform statistically better or worse than guessing, especially at longer timescales.**"
+
+## What is StockTwits?
+
+-   This is what Copilot suggested I say: "StockTwits is a social media platform designed for sharing ideas between investors, traders, and entrepreneurs.""
+
+-   This is what I say: "StockTwits is Twitter for randos to hype meme stocks...with memes."
+
+    ![](img/stocktwits_snap.jpg){width="600"}
+
+## The Plan
+
+-   Download symbol_sentiment CSV files of the StockTwits dataset from AWS S3.
+-   Filter the dataset down to useful posts.
+-   Download matching stock price data from Yahoo Finance.
+-   Calculate 7-day forward returns after each message.
+-   Filter for statistically significant batting averages.
+-   Develop a trading strategy.
+
+## From 500mm down to 16mm Posts
+
+![](img/funnel.jpg){fig-align="center" width="1500"}
+
+## Managing The Data
+
+-   The R dplyr package is great a manipulating large data frames but is designed for in-memory usage.
+-   Manipulating very large data sets is best done with a database package that works with connections to those data sets, wherever they reside.
+-   We will use the super-fast **DuckDB** for R (Python users should consider Polars).
+-   DuckDB has a dplyr frontend called **duckplyr** where most dplyr verbs are implemented.
+-   We'll save and retrieve (connect to) files in **Parquet** format which, like duckDB, is column-oriented.
+-   **Differences in syntax are almost invisible but speed advantage is enormous.**
+
+## duckDB Is SQL-based....
+
+```{r SQL demo}
+#| eval: false
+# Find the largest sepals/petals in the Iris data set
+library(duckdb)
+
+con <- dbConnect(duckdb())
+duckdb_register(con, "iris", iris)
+
+query <- r'(
+    SELECT count(*) AS num_observations,
+    max("Sepal.Width") AS max_width,
+    max("Petal.Length") AS max_petal_length
+    FROM iris
+    WHERE "Sepal.Length" > 5
+    GROUP BY ALL
+    )'
+
+dbGetQuery(con, query)
+```
+
+## ... Buy You Don't Have To Learn SQL
+
+```{r duckPlyr demo}
+#| eval: false
+# Find the largest sepals/petals in the Iris data set using duckplyr
+library("duckplyr")
+
+iris |>
+    filter(Sepal.Length > 5) |>
+    summarize(.by = Species
+        num_observations = n(),
+        max_width = max(Sepal.Width),
+        max_petal_length = max(Petal.Length),
+        na.rm = TRUE) |>
+    collect()
+```
+
+-   Chains of multiple verbs are only evaluated when `collect()` or `as_tibble()` is called, even when the data remains on disk and not in memory.
+-   Not all verbs are implemented, but duckplyr automatically falls back to dplyr when needed.
+
+## Downloading the Data is Easy
+
+-   The StockTwits dataset is stored as 34 CSV files on AWS S3.
+-   It took about 25 seconds per file on my machine to fetch and save.
+
+```{r Load Data}
+#| eval: false
+# Load required libraries
+library(tidyverse)
+library(duckplyr)
+
+db_exec("INSTALL httpfs;")
+db_exec("LOAD httpfs;")
+db_exec("SET s3_region='us-west-2';")
+
+base_url <- "https://stocktwits-nyu.s3.amazonaws.com/dataset/v1/data/csv/"
+dataset <- "symbol_sentiments"
+file_nums <- sprintf("%02d", 0:33)
+S3_file_list <- paste0(BASE_URL, DATASET, "/", DATASET, "_", file_nums, ".csv")
+local_file_list <- paste0("data/", DATASET, "_", file_nums, ".parquet")
+
+for (n in 1:length(S3_file_list)) {
+  df <- read_csv_duckdb(S3_file_list[n]) |>
+    compute_parquet(local_file_list[n])
+}
+
+# Read all parquet files and off you go - instantly!
+sentiments <- read_parquet_duckdb(local_file_list)
+sentiments |> summarise(total_rows = n())
+```
+
+## Bibliography
