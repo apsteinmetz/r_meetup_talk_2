@@ -4,10 +4,14 @@ subtitle: "Stock Trading From Social Media Sentiment Analysis"
 author: "Art Steinmetz"
 format: 
   revealjs:
-    theme: blood
+    theme: dark
     embed-resources: true
+    code-block-height: 650px
 execute: 
   echo: true
+  eval: false
+  warning: false
+  message: false
 bibliography: refs.bibtex
 link-citations: true
 ---
@@ -35,14 +39,8 @@ link-citations: true
 
 ## Social Media Sentiment Analysis
 
--   A recent academic paper by Aaron Kaufman, Jax Li and Nasser Alansari presented a huge dataset.
-
-    > *"StockTwits: Comprehensive records of a financial social media platform from 2008 to 2022."[@Li_Al_Ansari_Kaufman_2025]*
-
--   They scraped every post, ever, on StockTwits to retrieve over 500(!) million messages.
-
--   The complete dataset is freely available on AWS S3.
-
+-   A recent academic paper presented a huge dataset. *"StockTwits: Comprehensive records of a financial social media platform from 2008 to 2022."[@Li_Al_Ansari_Kaufman_2025]*
+-   The complete dataset is freely available on AWS S3, over 500 million posts!
 -   Of the posters, the researchers found "**a significant percentage consistently perform statistically better or worse than guessing, especially at longer timescales.**"
 
 ## What is StockTwits?
@@ -51,7 +49,7 @@ link-citations: true
 
 -   This is what I say: "StockTwits is Twitter for randos to hype meme stocks...with memes."
 
-    ![](img/stocktwits_snap.jpg){width="600"}
+    ![](img/stocktwits_snap.jpg){fig-align="center" width="400"}
 
 ## The Plan
 
@@ -69,16 +67,22 @@ link-citations: true
 ## Managing The Data
 
 -   The R dplyr package is great a manipulating large data frames but is designed for in-memory usage.
+
 -   Manipulating very large data sets is best done with a database package that works with connections to those data sets, wherever they reside.
+
 -   We will use the super-fast **DuckDB** for R (Python users should consider Polars).
+
+## Managing The Data (cont.)
+
 -   DuckDB has a dplyr frontend called **duckplyr** where most dplyr verbs are implemented.
+
 -   We'll save and retrieve (connect to) files in **Parquet** format which, like duckDB, is column-oriented.
+
 -   **Differences in syntax are almost invisible but speed advantage is enormous.**
 
 ## duckDB Is SQL-based....
 
 ```{r SQL demo}
-#| eval: false
 # Find the largest sepals/petals in the Iris data set
 library(duckdb)
 
@@ -100,7 +104,6 @@ dbGetQuery(con, query)
 ## ... Buy You Don't Have To Learn SQL
 
 ```{r duckPlyr demo}
-#| eval: false
 # Find the largest sepals/petals in the Iris data set using duckplyr
 library("duckplyr")
 
@@ -114,17 +117,22 @@ iris |>
     collect()
 ```
 
+## duckplyr Key Points
+
 -   Chains of multiple verbs are only evaluated when `collect()` or `as_tibble()` is called, even when the data remains on disk and not in memory.
 -   Not all verbs are implemented, but duckplyr automatically falls back to dplyr when needed.
+-   Have a strategy around when to "materialize" data.
 
 ## Downloading the Data is Easy
 
--   The StockTwits dataset is stored as 34 CSV files on AWS S3.
--   It took about 25 seconds per file on my machine to fetch and save.
+-   We are only interested in files containing the user ID, timestamp, symbol and sentiment columns.
+-   This 100-million-row subset is stored as 34 CSV files in an AWS S3 bucket.
+-   Fetching took about 25 seconds per file on my machine.
+-   Once downloaded, we can treat the entire dataset on disk as a single data frame.
+
+## Downloading the Data is Easy (code)
 
 ```{r Load Data}
-#| eval: false
-# Load required libraries
 library(tidyverse)
 library(duckplyr)
 
@@ -135,17 +143,121 @@ db_exec("SET s3_region='us-west-2';")
 base_url <- "https://stocktwits-nyu.s3.amazonaws.com/dataset/v1/data/csv/"
 dataset <- "symbol_sentiments"
 file_nums <- sprintf("%02d", 0:33)
-S3_file_list <- paste0(BASE_URL, DATASET, "/", DATASET, "_", file_nums, ".csv")
-local_file_list <- paste0("data/", DATASET, "_", file_nums, ".parquet")
+S3_file_list <- paste0(base_url, dataset, "/",dataset, "_", file_nums, ".csv")
+local_file_list <- paste0("data/", dataset, "_", file_nums, ".parquet")
 
 for (n in 1:length(S3_file_list)) {
   df <- read_csv_duckdb(S3_file_list[n]) |>
-    compute_parquet(local_file_list[n])
-}
+    compute_parquet(local_file_list[n]) }
 
-# Read all parquet files and off you go - instantly!
+# ALL SET! Read all parquet files and off you go - instantly!
 sentiments <- read_parquet_duckdb(local_file_list)
 sentiments |> summarise(total_rows = n())
 ```
+## No More Code Today. Just *RESULTS!*
+
+-   Refer to the my GitHub repository for all the analytic code and details.
+-   <https://github.com/apsteinmetz/stocktwits>
+
+## The Cleaned Data
+
+```{r}
+#| eval: true
+#| echo: false
+library(duckplyr)
+library(gt)
+sentiments <- read_parquet_duckdb("data/sentiments_filtered.parquet")
+slice_head(sentiments, n = 10) |> 
+  collect() |> 
+  gt::gt() |> 
+  # add title
+  gt::tab_header(
+    title = "Sample StockTwits Posts After Cleaning and Filtering"
+  )
+```
+
+## What are the most popular Tickers?
+No surprise, megacaps, meme stocks, and SPY.
+```{r Most Popular Tickers}
+#| echo: false
+#| eval: true
+library(duckplyr)
+library(gt)
+popular_tickers <- read_parquet_duckdb("data/popular_tickers.parquet")
+head(popular_tickers,n=10) |> 
+  gt::gt() |>  
+  # add title
+  gt::tab_header(
+    title = "Most Popular StockTwits Tickers"
+  ) |> 
+  gt::fmt_number(
+    columns = c(count),
+    decimals = 0
+  )
+```
+## Zipf's Law - Stocktwits Like to Pile On
+```{r Zipfs Law}
+#| eval: true
+#| warning: false
+#| message: false
+#| echo: false
+# show popular tickers on a log/log frequency plot
+library(ggplot2)
+library(duckplyr)
+popular_tickers <- read_parquet_duckdb("data/popular_tickers.parquet") |>
+  as_tibble() |>
+  arrange(desc(count)) |>
+  mutate(rank = row_number())
+
+popular_tickers |>
+  ggplot(aes(x = rank, y = count)) +
+  geom_point() +
+  scale_x_log10(limits = c(1, 1000)) +
+  scale_y_log10(labels = scales::comma) +
+  # add labels for top 10 tickers
+  geom_text(
+    data = popular_tickers |> slice_head(n = 10),
+    aes(label = ticker),
+    vjust = -1,
+    size = 3
+  ) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(
+    title = "Popularity Begets Popularity",
+    subtitle = "Rank Frequency Plot of Top 500 StockTwits Ticker Mentions",
+    x = "Rank of Ticker by Mentions (log scale)",
+    y = "Number of Mentions (log scale)"
+  )
+
+```
+
+## Get Prices For Most Popular Tickers
+- We the `yahoofinancer` package to download historical OHLC prices from Yahoo Finance.
+- Other packages are available, e.g. `quantmod`, `tidyquant`, `yfR`.
+- Some tickers don't have valid prices histories aligned with our sentiment data. Ignore.
+
+## Build Track Records
+
+## Find Statistically Significant Track Records
+
+## Construct Sample and Out-Of-Sample Windows
+
+## Develop Trading Strategy
+
+## Develop Realistic Retail Strategy
+- Limit trade volume to first 100 signals per month.
+- Equal weight each trade.
+- Long only. Note that includes buys where negative alpha posters say "Sell."
+
+## Results!
+
+## Caveats
+
+-   Transaction costs ignored (but small for retail investors today).
+-   Execution Slippage ignored (but small for highly liquid stocks).
+-   Yahoo Finance data quality issues (but manageable).
+-   We use a 7-day window but who knows what the poster horizon is?
+
+
 
 ## Bibliography
