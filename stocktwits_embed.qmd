@@ -109,7 +109,7 @@ library("duckplyr")
 
 iris |>
     filter(Sepal.Length > 5) |>
-    summarize(.by = Species
+    summarize(.by = Species,
         num_observations = n(),
         max_width = max(Sepal.Width),
         max_petal_length = max(Petal.Length),
@@ -152,8 +152,25 @@ for (n in 1:length(S3_file_list)) {
 
 # ALL SET! Read all parquet files and off you go - instantly!
 sentiments <- read_parquet_duckdb(local_file_list)
-sentiments |> summarise(total_rows = n())
 ```
+
+## Understand what materialization means
+
+```{r Materialization Demo}
+# This gets the answer almost instantly.
+sentiments |> summarise(total_rows = n())
+# A duckplyr data frame: 1 variable
+#         n
+#     <int>
+#1 106105966
+
+# This is bad
+sentiments |> nrow()
+# Error:
+# ! Materialization would result in more than 250000 rows.
+# Use `collect()` or `as_tibble()` to materialize.
+```
+
 ## No More Code Today. Just *RESULTS!*
 
 -   Refer to the my GitHub repository for all the analytic code and details.
@@ -177,7 +194,9 @@ slice_head(sentiments, n = 10) |>
 ```
 
 ## What are the most popular Tickers?
+
 No surprise, megacaps, meme stocks, and SPY.
+
 ```{r Most Popular Tickers}
 #| echo: false
 #| eval: true
@@ -195,7 +214,9 @@ head(popular_tickers,n=10) |>
     decimals = 0
   )
 ```
+
 ## Zipf's Law - Stocktwits Like to Pile On
+
 ```{r Zipfs Law}
 #| eval: true
 #| warning: false
@@ -232,32 +253,98 @@ popular_tickers |>
 ```
 
 ## Get Prices For Most Popular Tickers
-- We the `yahoofinancer` package to download historical OHLC prices from Yahoo Finance.
-- Other packages are available, e.g. `quantmod`, `tidyquant`, `yfR`.
-- Some tickers don't have valid prices histories aligned with our sentiment data. Ignore.
+
+-   We the `yahoofinancer` package to download historical OHLC prices from Yahoo Finance.
+-   Other packages are available, e.g. `quantmod`, `tidyquant`, `yfR`.
+-   Some tickers don't have valid prices histories aligned with our sentiment data. Ignore.
 
 ## Build Track Records
 
-## Find Statistically Significant Track Records
+-   Map each post to the adjusted close price on the post date and the price 7 days later.
+-   Test whether the return and return vs. SPY align with sentiment
 
-## Construct Sample and Out-Of-Sample Windows
+```{r}
+#| eval: true
+#| echo: false
+read_parquet_duckdb("data/track_record_sample.parquet") |>
+  collect() |>
+  head(5) |> 
+  gt::gt() |>
+  # add title
+  gt::tab_header(
+    title = "Sample Track Records"
+  )
+```
+
+## Calculate Batting Averages
+
+-   For each ticker, calculate the batting average (percent correct) for buy and sell posts.
+
+```{r}
+#| eval: true
+#| echo: false
+read_parquet_duckdb("data/win_rate_sample.parquet") |>
+  slice_head(n = 5) |>
+  collect() |>
+  gt::gt() |>
+  # add title
+  gt::tab_header(
+    title = "Sample Batting Averages"
+  ) |> 
+  #format win_rate as percent
+  gt::fmt_percent(
+    columns = c(win_rate),
+    decimals = 0
+  )
+```
+
+## Stocktwits Are Usually Wrong
+
+-   Of 68,183 posters with track records, 37,767 had statistically significant batting averages at the 5% level (p \< 0.05).
+-   Of those, the alpha direction was negative for 83%. ![](img/batting_avg_hist.png)
 
 ## Develop Trading Strategy
 
-## Develop Realistic Retail Strategy
-- Limit trade volume to first 100 signals per month.
-- Equal weight each trade.
-- Long only. Note that includes buys where negative alpha posters say "Sell."
+-   Divide posts into 3 month samples Test for significant posters in the window.
+
+-   During the 1 month following out of sample, follow sentiment from positive alpha poster, and do the opposite from a negative alpha poster. Reverse the trade 7 days later.
+
+-   Deploy uninvested cash in SPY ETF.
+
+## This Generates a LOT of trades
+
+Feasible for a quant shop, not us.
+
+![](img/trade_volume.png)
+
+## Too Bad. The Gains Look Impressive
+
+![](img/gain_heatmap.png)
+
+## Develop Realistic Strategy for the Small Investor
+
+-   Limit trade volume to first 100 signals per month.
+
+-   Equal weight each trade.
+
+-   Long only. Note that includes buys where negative alpha posters say "Sell."
 
 ## Results!
 
+![](img/median_gain.png)
+
+## Should I Quit My Day Job?
+
+![](img/mountain.png)
+
 ## Caveats
 
--   Transaction costs ignored (but small for retail investors today).
--   Execution Slippage ignored (but small for highly liquid stocks).
--   Yahoo Finance data quality issues (but manageable).
--   We use a 7-day window but who knows what the poster horizon is?
+-   Transaction costs ignored.
+-   Execution Slippage ignored.
+-   Yahoo Finance data quality issues.
+-   We use a 7-day window but who knows what the poster's horizon is?
+-   I used AI "vibe coding" to build the trade simulator. It might be crap.
 
-
+## Thank You!
 
 ## Bibliography
