@@ -23,7 +23,6 @@ link-citations: true
 
 ## Who I Am
 
--   Husband, Father, Grandfather (I have my priorities straight)
 -   Retired Investment Professional (Global Macro Fixed Income)
 -   Fund Board Member at BlackRock
 -   Consultant for Posit
