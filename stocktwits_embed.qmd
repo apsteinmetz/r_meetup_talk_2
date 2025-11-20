@@ -24,10 +24,16 @@ link-citations: true
 ## Who I Am
 
 -   Retired Investment Professional (Global Macro Fixed Income)
+
 -   Fund Board Member at BlackRock
+
 -   Consultant for Posit
+
 -   Data Science Hobbyist
--   Blogger at `outsiderdata.net`
+
+## I Write About Data Science at [outsiderdata.net](https://outsiderdata.netlify.app/)
+
+![](img/blog_shot.jpg)
 
 ## Background
 
