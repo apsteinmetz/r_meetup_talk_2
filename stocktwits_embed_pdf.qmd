@@ -43,6 +43,8 @@ link-citations: true
 -   The complete dataset is freely available on AWS S3, over 500 million posts!
 -   Of the posters, the researchers found "**a significant percentage consistently perform statistically better or worse than guessing, especially at longer timescales.**"
 
+\newpage
+
 ## What is StockTwits?
 
 -   This is what Copilot suggested I say: "StockTwits is a social media platform designed for sharing ideas between investors, traders, and entrepreneurs.""
@@ -50,6 +52,7 @@ link-citations: true
 -   This is what I say: "StockTwits is Twitter for randos to hype meme stocks...with memes."
 
     ![](img/stocktwits_snap.jpg){fig-align="center" width="400"}
+
 
 ## The Plan
 
@@ -60,9 +63,13 @@ link-citations: true
 -   Filter for statistically significant batting averages.
 -   Develop a trading strategy.
 
-## From 500mm down to 16mm Posts
+\newpage
 
-![](img/funnel.jpg){fig-align="center" width="500"}
+## From 500 Million Down To 16 Million Posts
+
+![](img/funnel.jpg){fig-align="center" width="700"}
+
+\newpage
 
 ## Managing The Data
 
@@ -79,6 +86,8 @@ link-citations: true
 -   We'll save and retrieve (connect to) files in **Parquet** format which, like duckDB, is column-oriented.
 
 -   **Differences in syntax are almost invisible but speed advantage is enormous.**
+
+\newpage
 
 ## duckDB Is SQL-based....
 
@@ -101,7 +110,7 @@ query <- r'(
 dbGetQuery(con, query)
 ```
 
-## ... Buy You Don't Have To Learn SQL
+## ... But You Don't Have To Learn SQL
 
 ```{r duckPlyr demo}
 # Find the largest sepals/petals in the Iris data set using duckplyr
@@ -123,12 +132,14 @@ iris |>
 -   Not all verbs are implemented, but duckplyr automatically falls back to dplyr when needed.
 -   Have a strategy around when to "materialize" data.
 
-## Downloading the Data is Easy
+## Downloading the Data is Easy!
 
 -   We are only interested in files containing the user ID, timestamp, symbol and sentiment columns.
 -   This 100-million-row subset is stored as 34 CSV files in an AWS S3 bucket.
 -   Fetching took about 25 seconds per file on my machine.
 -   Once downloaded, we can treat the entire dataset on disk as a single data frame.
+
+\newpage
 
 ## Downloading the Data is Easy (code)
 
@@ -160,7 +171,7 @@ sentiments <- read_parquet_duckdb(local_file_list)
 # This gets the answer almost instantly.
 sentiments |> summarise(total_rows = n())
 # A duckplyr data frame: 1 variable
-#         n
+#   total_rows
 #     <int>
 #1 106105966
 
@@ -173,7 +184,7 @@ sentiments |> nrow()
 
 ## No More Code Today. Just *RESULTS!*
 
--   Refer to the my GitHub repository for all the analytic code and details.
+-   Refer to my GitHub repository for all the analytic code and details.
 -   <https://github.com/apsteinmetz/stocktwits>
 
 ## The Cleaned Data
@@ -215,6 +226,8 @@ head(popular_tickers,n=10) |>
   )
 ```
 
+\newpage
+
 ## Zipf's Law - Stocktwits Like to Pile On
 
 ```{r Zipfs Law}
@@ -255,8 +268,10 @@ popular_tickers |>
 ## Get Prices For Most Popular Tickers
 
 -   We the `yahoofinancer` package to download historical OHLC prices from Yahoo Finance.
--   Other packages are available, e.g. `quantmod`, `tidyquant`, `yfR`.
--   Some tickers don't have valid prices histories aligned with our sentiment data. Ignore.
+-   Other download packages are available, e.g. `quantmod`, `tidyquant`, `yfR`.
+-   Some tickers don't have valid prices histories aligned with our sentiment data. We'll ignore them.
+
+\newpage
 
 ## Build Track Records
 
@@ -298,10 +313,15 @@ read_parquet_duckdb("data/win_rate_sample.parquet") |>
   )
 ```
 
+\newpage
+
 ## Stocktwits Are Usually Wrong
 
--   Of 68,183 posters with track records, 37,767 had statistically significant batting averages at the 5% level (p \< 0.05).
--   Of those, the alpha direction was negative for 83%. ![](img/batting_avg_hist.png)
+- Of 68,183 posters with track records, 37,767 had statistically significant batting averages at the 5% level (p \< 0.05).
+
+- Of those, the alpha direction was negative for 83%. 
+
+![](img/batting_avg_hist.png)
 
 ## Develop Trading Strategy
 
@@ -310,6 +330,8 @@ read_parquet_duckdb("data/win_rate_sample.parquet") |>
 -   During the 1 month following out of sample, follow sentiment from positive alpha poster, and do the opposite from a negative alpha poster. Reverse the trade 7 days later.
 
 -   Deploy uninvested cash in SPY ETF.
+
+\newpage
 
 ## This Generates a LOT of trades
 
@@ -346,5 +368,3 @@ Feasible for a quant shop, not us.
 -   I used AI "vibe coding" to build the trade simulator. It might be crap.
 
 ## Thank You!
-
-## Bibliography

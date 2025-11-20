@@ -101,7 +101,7 @@ query <- r'(
 dbGetQuery(con, query)
 ```
 
-## ... Buy You Don't Have To Learn SQL
+## ... But You Don't Have To Learn SQL
 
 ```{r duckPlyr demo}
 # Find the largest sepals/petals in the Iris data set using duckplyr
@@ -123,7 +123,7 @@ iris |>
 -   Not all verbs are implemented, but duckplyr automatically falls back to dplyr when needed.
 -   Have a strategy around when to "materialize" data.
 
-## Downloading the Data is Easy
+## Downloading the Data is Easy!
 
 -   We are only interested in files containing the user ID, timestamp, symbol and sentiment columns.
 -   This 100-million-row subset is stored as 34 CSV files in an AWS S3 bucket.
@@ -173,7 +173,7 @@ sentiments |> nrow()
 
 ## No More Code Today. Just *RESULTS!*
 
--   Refer to the my GitHub repository for all the analytic code and details.
+-   Refer to my GitHub repository for all the analytic code and details.
 -   <https://github.com/apsteinmetz/stocktwits>
 
 ## The Cleaned Data
@@ -255,13 +255,13 @@ popular_tickers |>
 ## Get Prices For Most Popular Tickers
 
 -   We the `yahoofinancer` package to download historical OHLC prices from Yahoo Finance.
--   Other packages are available, e.g. `quantmod`, `tidyquant`, `yfR`.
--   Some tickers don't have valid prices histories aligned with our sentiment data. Ignore.
+-   Other download packages are available, e.g. `quantmod`, `tidyquant`, `yfR`.
+-   Some tickers don't have valid prices histories aligned with our sentiment data. We'll ignore them.
 
 ## Build Track Records
 
 -   Map each post to the adjusted close price on the post date and the price 7 days later.
--   Test whether the return and return vs. SPY align with sentiment
+-   Test whether the return and return vs. SPY align with sentiment.
 
 ```{r}
 #| eval: true
@@ -301,13 +301,19 @@ read_parquet_duckdb("data/win_rate_sample.parquet") |>
 ## Stocktwits Are Usually Wrong
 
 -   Of 68,183 posters with track records, 37,767 had statistically significant batting averages at the 5% level (p \< 0.05).
--   Of those, the alpha direction was negative for 83%. ![](img/batting_avg_hist.png)
+-   Of those, the alpha direction was negative for 83%.
+
+![](img/batting_avg_hist.png)
 
 ## Develop Trading Strategy
 
--   Divide posts into 3 month samples Test for significant posters in the window.
+-   Divide posts into 3 month samples.
 
--   During the 1 month following out of sample, follow sentiment from positive alpha poster, and do the opposite from a negative alpha poster. Reverse the trade 7 days later.
+-   Test for significant posters in the window.
+
+-   During the 1 month following out of sample, follow sentiment from positive alpha poster, and do the opposite from a negative alpha poster.
+
+-   Reverse the trade 7 days later.
 
 -   Deploy uninvested cash in SPY ETF.
 
